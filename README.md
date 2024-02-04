@@ -1,43 +1,54 @@
 This repo solves (minimizes significantly) the problem of:
 
-# WHAT IF YOUR MULTI-SIG (or wallet) GETS LEAKED DURIG A 2-TX OR DELAYED ROLE/ADMIN TRANSFER PROCESS ⁉️⁉️ ⚠️
+# WHAT IF YOUR ACCOUNT KEY(S) GETS LEAKED DURIG A 2-TX OR DELAYED UNIQUE ROLE/ADMIN TRANSFER PROCESS ⁉️ ⚠️
 
-The problem is the following: Imagine the account you use for some kind of role on your smart contract system (whether admin or other) gets compromised, for example with a leak of the keys. Then you would need to transfer the role to another account as soon as posible.
+Imagine the account you use for some kind of role on your smart contract system (whether admin or other) gets compromised, for example with a leak of the keys. Then you would need to transfer the role to another account as soon as posible, preferably immediately.
 
-But, what if your system is using [AccessControlDefaultAdminRules](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/extensions/AccessControlDefaultAdminRules.sol) by OpenZepelin and now you have to wait for a period of time to safely transfer the role to another account?
+If you are using the classic `Ownable` solution you will just have to front-run the attacker and transfer the ownership quciker than him to another account you own.
 
-This creates essentially a money race between the attacker who got the leaked signature and the true owners to see who can spend more gas front-running the other to change the admin succesfully.
+But, what if your system is using [AccessControlDefaultAdminRules](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/extensions/AccessControlDefaultAdminRules.sol) by OpenZepelin? 
 
-The attacker might want to change the `DEFAULT_ADMIN_ROLE` but then team could cancel the process indeed.
-Anyway they attacker might just keep trying. Effectively if you have less funds than the actor who got the leaked keys you lost the control. And the cost of this attack is the cost the attacker might find reasonable to spend to get the control of the system.
+This creates essentially a race to set the new admin or unique role between the attacker who got the leaked key(s) and the true owner(s) to see who can spend more gas front-running the other to change the admin succesfully.
 
-It is true that delayed transfers make the attack more expensive but, there are cheaper ways to mitigate this and if you are a small protocol it easily could be worth it for competing bigger agents to spend some money to "get rid of competitors".
+The attacker would need to init the transfer process and wait a delay to accept it hoping you wont cancel the operation in the meanwhile. So in practice the only thing the legit owner needs to do is to keep front-running the attacker canceling its change role proposals until all users are aware of the battle and move their funds to a save place. Actually the attacker can see this, and, in systems where there are special settings only modifyable by an admin, the attacker can complicate the
+defense strategy by trying to modify those settings at the same time it tries to get the ownership to its own wallet, thys making the defense strategy more complex and expensive to nullify until all users are safe.
 
-Thus here I introduce the idea of a backup-admin of 2tx process transfer with a time delay should be added if desiring to change the backup-admin.
+Effectively if you don't have enough funds to do this, you lost the control of your system and some or all users will be affected.
 
-function proposeBackup()
-function acceptBackup() [after time delay]
+Thus here I introduce the idea of a `backup-address` for 2tx or delayed unique role/admin transfers processes. So, if you ever find yourself in this situation you will only need to front-run the attacker once and with 1tx making the defense mechanism way much more cheap.
 
-Now if attacker tries to change the admin, valid owners of the account can change to the back-up admin which they are suposed to
-have control of.
+## Backup-Addresses
 
-And even if attacker tries to set a new future back-up admin, this has a delay so valid users
-can just change to back-up damin which its private keys have not been compromised.
+A backup address is an address which a user holding a unique role can pass its role to without having to pass trhough the 2tx process or a time delay. This backup addresses must be owned by the same user which holds the role of course.
 
-Now this creates the quesiton... what if the back-up also gets leaked?!?
-Well, we can cheaply implement this mechanism recuresivelly with mappings and make it a new 
-security requirement for protocols: how many back-up accounts you have?
+So now if your main account gets compromised you can just transfer it to the backup account in 1 tx.
 
-mapping(address => address) _addressToBackup
-mapping(address => address) _addressToIsBackupOf
+Example on how [AccountBackup](./src/AccountBackup.sol) is used with `AccessControlDefaultAdminRules`:
+[AccessControlDefaultAdminRulesWithBackup.sol](./src/AccessControlDefaultAdminRulesWithBackup.sol)
 
-So if, even if the back-up gets leaked, you can just can create as many back-ups for the back-up as you want.
+```solidity
+  function beginDefaultAdminTransfer(address newAdmin) public override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (checkIsBackup(defaultAdmin(), newAdmin)) {
+            _grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
+        } else {
+            super.beginDefaultAdminTransfer(newAdmin);
+        }
+    }
+```
 
-Notice contracts like `Ownable2Step` can also benefit from this extension.
+This alone won't prevent the attacker from creating this racing problem because he could always just use some `changeBackup()` account tx in the attack and thus creating again a the race problem.
 
-Now if in Onwable2Step the owner signature gets leaked, you can just 1tx transfer to the backup, but previously 2 step tx had to be done to confirm backup is a valid desired user so it applies the solution while keeping the 2tx essence.
+So on top of this, changing a backup address requires a delay so the attacker can't just change the backup address and
+then start the front-running defense race. If the attacker tries to change the backup then he will have to wait X time delay, and during that time delay you just need to send 1 successful tx to transfer the role to the backup.
 
-With this method the cost of solving the problem if the attack is ever feasable is reduced significantly as there are no race conditions and you jut need to send a cheap 1tx and an acceptance tx with the back-up account.
+## But what if the backup also gets compromised? 🤔
 
-Of course if signature gets leaked and the last backup to that leak is still not set-up then you are fucked. But if not then the rest of the time 99.99% of it you are safe. Before you were unsafe all the time. And by default in the constructor you can initialize 1 back-up if tou want so you already start with 2 protection agains leaked keys. Both should be compromised at the same
-time and you not having a 3rd backup ready to actually be fucked.
+Well, we can cheaply implement backups for the backups if we desire with mappings and make it a new 
+security requirement for protocols to ask this question: how many back-up accounts do you have?
+
+[AccountBackup.sol](./src/AccountBackup.sol) also handles this recursive backing up.
+
+So if, even if the back-up account gets leaked, you can just have prepared as many back-ups for the back-ups as you want.
+
+> 📘 **Note** ℹ️: This can also be used in [Ownable2Step](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable2Step.sol), which would require the legit admin to just safely use 1tx instead of 2 while the attacker would require 2tx. Still the attacker can front-run but it would become harder to do so. Plus the setting of the 
+> backup account requires by default 2tx to be set so it doesnt contracdict the 2 step moto of `Ownable2Step`.
