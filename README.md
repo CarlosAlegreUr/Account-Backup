@@ -44,7 +44,7 @@ then start the front-running defense race. If the attacker tries to change the b
 ## But what if the backup also gets compromised? 🤔
 
 Well, we can cheaply implement backups for the backups if we desire with mappings and make it a new 
-security requirement for protocols to ask this question: how many back-up accounts do you have?
+security requirement for protocols that implement this kind of unique roles handling to ask this question: how many back-up accounts do you have?
 
 [AccountBackup.sol](./src/AccountBackup.sol) also handles this recursive backing up.
 
