@@ -1,10 +1,10 @@
 This repo solves (minimizes significantly) the problem of:
 
-# WHAT IF YOUR ACCOUNT KEY(S) GETS LEAKED DURIG A 2-TX OR DELAYED UNIQUE ROLE/ADMIN TRANSFER PROCESS ⁉️ ⚠️
+# WHAT IF THE KEY(S) OF A UNIQUE-ROLE/ADMIN ACCOUNT GETS LEAKED IN A SYSTEM WITH 2-TX OR/AND TIME DELAY UNIQUE-ROLE TRANSFER PROCESS ⁉️ ⚠️
 
 Imagine the account you use for some kind of unique role (only 1 address must hold it) on your smart contract system (whether admin or other) gets compromised, for example with a leak of the keys. Then you would need to transfer the role to another account as soon as posible, preferably immediately.
 
-If you are using the classic `Ownable` solution you will just have to front-run the attacker and transfer the ownership quciker than him to another account you own.
+If you are using the classic `Ownable` solution you will just have to front-run the attacker and transfer the ownership quicker than him to another account you own.
 
 But, what if your system is using [AccessControlDefaultAdminRules](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/extensions/AccessControlDefaultAdminRules.sol) by OpenZepelin? 
 
